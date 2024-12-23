@@ -2,7 +2,7 @@ from sympy import factorint
 from sympy.core.numbers import igcd
 from copy import deepcopy
 
-def adleman(g, a, n):
+def adleman2(g, a, n):
     """
     Function to calculate log(a) mod (n-1) using the Adleman algorithm.
 
@@ -290,5 +290,5 @@ g = 2
 a = 7
 n = 61
 
-result, log_output = adleman(g, a, n)
-print(log_output)
+result, log_output = adleman2(g, a, n)
+# print(log_output)

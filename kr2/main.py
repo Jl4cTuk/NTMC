@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import os
 from hellman import hellman
 from adleman import adleman
+from adleman2 import adleman
 import asyncio
 
 load_dotenv()
@@ -49,12 +50,30 @@ async def adleman_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Ошибка: {e}")
 
+async def adleman2_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        g, a, n = map(int, context.args)
+
+        async def run_hellman():
+            result, detailed_solution = adleman2(g, a, n)
+            return detailed_solution
+
+        detailed_solution = await asyncio.wait_for(run_hellman(), timeout=10.0)
+
+        await update.message.reply_text(f"```\n{detailed_solution}\n```", parse_mode="MarkdownV2")
+
+    except asyncio.TimeoutError:
+        await update.message.reply_text("Ошибка: Превышено время ожидания (таймаут 10 секунд).")
+    except Exception as e:
+        await update.message.reply_text(f"Ошибка: {e}")
+
 def main():
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("hellman", hellman_command))
     application.add_handler(CommandHandler("adleman", adleman_command))
+    application.add_handler(CommandHandler("adleman2", adleman2_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
     application.run_polling()

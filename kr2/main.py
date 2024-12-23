@@ -16,6 +16,7 @@ from adleman import adleman
 from adleman2 import adleman2
 from SF import solve_polynomial
 from factor import factor
+from gcd import gcd_polynomials  # Импортируем функцию gcd_polynomials
 from typing import List
 
 # Загрузка переменных окружения из .env файла
@@ -49,13 +50,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/hellman g a n - Выполнить алгоритм Хеллмана\n"
         "/adleman g a n - Выполнить алгоритм Адлемана\n"
         "/adleman2 g a n - Выполнить модифицированный алгоритм Адлемана (он дополнительно расписывает систему, но иногда криво, так что если криво, то первый вариант)\n"
-        "/factor c0 c1 c2 ... cN p - Факторизовать полином на свободные квадраты\n"
-        "/SF c0 c1 c2 ... cN p - Разложить полином на свободные квадраты (для отладки)"
+        "/factor c0 c1 ... cN p - Факторизовать полином\n"
+        "/gcd c0 c1 ... cN | d0 d1 ... dM p - Вычислить НОД двух полиномов\n"
+        "/SF c0 c1 ... cN p - Разложить полином на свободные квадраты (для отладки)"
     )
 
 # Обработчик сообщений, не являющихся командами
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Ты написал какую-то хуйню, перепроверь:\n{update.message.text}")
+
+# Вспомогательная функция для выполнения команд с таймаутом
+async def execute_with_timeout(func, *args, timeout=10.0):
+    return await asyncio.wait_for(
+        asyncio.get_event_loop().run_in_executor(None, func, *args),
+        timeout=timeout
+    )
 
 # Обработчик команды /hellman
 async def hellman_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -71,10 +80,7 @@ async def hellman_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         g, a, n = map(int, context.args)
 
         # Запуск функции hellman в отдельном потоке с таймаутом 10 секунд
-        detailed_solution = await asyncio.wait_for(
-            asyncio.get_event_loop().run_in_executor(None, hellman, g, a, n),
-            timeout=10.0
-        )
+        detailed_solution = await execute_with_timeout(hellman, g, a, n, timeout=10.0)
 
         # Ограничиваем длину сообщения Telegram (4096 символов)
         if len(detailed_solution) > 4000:
@@ -94,7 +100,7 @@ async def hellman_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Пример: /hellman 2 5 23"
         )
     except Exception as e:
-        await update.message.reply_text(f"Ошибка")
+        await update.message.reply_text(f"Ошибка: {e}")
 
 # Обработчик команды /adleman
 async def adleman_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -110,10 +116,7 @@ async def adleman_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         g, a, n = map(int, context.args)
 
         # Запуск функции adleman в отдельном потоке с таймаутом 10 секунд
-        detailed_solution = await asyncio.wait_for(
-            asyncio.get_event_loop().run_in_executor(None, adleman, g, a, n),
-            timeout=10.0
-        )
+        detailed_solution = await execute_with_timeout(adleman, g, a, n, timeout=10.0)
 
         # Ограничиваем длину сообщения Telegram (4096 символов)
         if len(detailed_solution) > 4000:
@@ -133,7 +136,7 @@ async def adleman_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Пример: /adleman 2 5 23"
         )
     except Exception as e:
-        await update.message.reply_text(f"Ошибка")
+        await update.message.reply_text(f"Ошибка: {e}")
 
 # Обработчик команды /adleman2
 async def adleman2_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -149,10 +152,7 @@ async def adleman2_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         g, a, n = map(int, context.args)
 
         # Запуск функции adleman2 в отдельном потоке с таймаутом 10 секунд
-        detailed_solution = await asyncio.wait_for(
-            asyncio.get_event_loop().run_in_executor(None, adleman2, g, a, n),
-            timeout=10.0
-        )
+        detailed_solution = await execute_with_timeout(adleman2, g, a, n, timeout=10.0)
 
         # Ограничиваем длину сообщения Telegram (4096 символов)
         if len(detailed_solution) > 4000:
@@ -172,7 +172,7 @@ async def adleman2_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Пример: /adleman2 2 5 23"
         )
     except Exception as e:
-        await update.message.reply_text(f"Ошибка")
+        await update.message.reply_text(f"Ошибка: {e}")
 
 # Обработчик команды /factor
 async def factor_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -212,10 +212,7 @@ async def factor_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         # Запускаем вычисление в отдельном потоке с таймаутом 10 секунд
-        detailed_solution = await asyncio.wait_for(
-            asyncio.get_event_loop().run_in_executor(None, factor, coeffs, p),
-            timeout=10.0
-        )
+        detailed_solution = await execute_with_timeout(factor, coeffs, p, timeout=10.0)
 
         # Ограничиваем длину сообщения Telegram (4096 символов)
         if len(detailed_solution) > 4000:
@@ -235,7 +232,7 @@ async def factor_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Пример: /factor 1 0 1 0 1 1 2"
         )
     except Exception as e:
-        await update.message.reply_text(f"Ошибка")
+        await update.message.reply_text(f"Ошибка: {e}")
 
 # Обработчик команды /SF
 async def SF_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -275,10 +272,7 @@ async def SF_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         # Запускаем вычисление в отдельном потоке с таймаутом 10 секунд
-        detailed_solution = await asyncio.wait_for(
-            asyncio.get_event_loop().run_in_executor(None, solve_polynomial, coeffs, p),
-            timeout=10.0
-        )
+        detailed_solution = await execute_with_timeout(solve_polynomial, coeffs, p, timeout=10.0)
 
         # Ограничиваем длину сообщения Telegram (4096 символов)
         if len(detailed_solution) > 4000:
@@ -300,6 +294,84 @@ async def SF_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Ошибка: {e}")
 
+# Обработчик команды /gcd
+async def gcd_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Обработчик команды /gcd для вычисления НОД двух полиномов.
+    
+    Формат команды:
+    /gcd c0 c1 c2 ... cN | d0 d1 ... dM p
+    
+    Где:
+    - c0, c1, ..., cN: Коэффициенты первого полинома от старшей к младшей степени.
+    - d0, d1, ..., dM: Коэффициенты второго полинома от старшей к младшей степени.
+    - p: Модуль p для поля Z_p.
+    
+    Пример:
+    /gcd 1 0 1 | 1 1 0 1 2
+    """
+    try:
+        # Объединяем все аргументы в строку
+        input_str = ' '.join(context.args)
+        
+        # Ищем разделитель '|'
+        if '|' not in input_str:
+            await update.message.reply_text(
+                "Ошибка: Требуется разделитель '|'.\n"
+                "Формат: /gcd c0 c1 c2 ... cN | d0 d1 ... dM p\n"
+                "Пример: /gcd 1 0 1 | 1 1 0 1 2"
+            )
+            return
+
+        # Разделяем по '|'
+        poly1_str, rest = input_str.split('|', 1)
+        poly1_coeffs = list(map(int, poly1_str.strip().split()))
+        
+        # Разделяем rest на второй полином и p
+        rest_parts = rest.strip().split()
+        if len(rest_parts) < 2:
+            await update.message.reply_text(
+                "Ошибка: Требуется как минимум два аргумента после '|'.\n"
+                "Формат: /gcd c0 c1 c2 ... cN | d0 d1 ... dM p\n"
+                "Пример: /gcd 1 0 1 | 1 1 0 1 2"
+            )
+            return
+        
+        *poly2_coeffs_str, p_str = rest_parts
+        poly2_coeffs = list(map(int, poly2_coeffs_str))
+        p = int(p_str)
+
+        # Проверяем, что p является простым числом
+        if not is_prime(p):
+            await update.message.reply_text("Ошибка: Модуль p должен быть простым числом.")
+            return
+
+        # Запускаем вычисление НОД в отдельном потоке с таймаутом 10 секунд
+        detailed_solution = await execute_with_timeout(
+            gcd_polynomials, poly1_coeffs, poly2_coeffs, p, timeout=10.0
+        )
+
+        # Ограничиваем длину сообщения Telegram (4096 символов)
+        if len(detailed_solution) > 4000:
+            detailed_solution = detailed_solution[:4000] + "\n... (сообщение слишком длинное)"
+
+        # Отправляем ответ пользователю с использованием форматирования Markdown
+        await update.message.reply_text(
+            f"```\n{detailed_solution}\n```", parse_mode="MarkdownV2"
+        )
+
+    except asyncio.TimeoutError:
+        await update.message.reply_text("Ошибка: Превышено время ожидания (таймаут 10 секунд).")
+    except ValueError:
+        await update.message.reply_text(
+            "Ошибка: Все коэффициенты и p должны быть целыми числами.\n"
+            "Формат: /gcd c0 c1 c2 ... cN | d0 d1 ... dM p\n"
+            "Пример: /gcd 1 0 1 | 1 1 0 1 2"
+        )
+    except Exception as e:
+        await update.message.reply_text(f"Ошибка: {e}")
+
+# Основная функция для запуска бота
 def main():
     # Создаем приложение бота
     application = Application.builder().token(TELEGRAM_TOKEN).build()
@@ -310,6 +382,7 @@ def main():
     application.add_handler(CommandHandler("adleman", adleman_command))
     application.add_handler(CommandHandler("adleman2", adleman2_command))
     application.add_handler(CommandHandler("factor", factor_command))
+    application.add_handler(CommandHandler("gcd", gcd_command))  # Добавляем обработчик /gcd
     application.add_handler(CommandHandler("SF", SF_command))
 
     # Добавляем обработчик для текстовых сообщений, не являющихся командами

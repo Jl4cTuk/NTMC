@@ -1,5 +1,14 @@
+# bot.py
+
+import asyncio
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    filters,
+    ContextTypes,
+)
 from dotenv import load_dotenv
 import os
 from hellman import hellman
@@ -7,67 +16,163 @@ from adleman import adleman
 from adleman2 import adleman2
 from SF import solve_polynomial
 from factor import factor
-import asyncio
+from typing import List
 
+# Загрузка переменных окружения из .env файла
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
+def is_prime(n: int) -> bool:
+    """
+    Проверяет, является ли число простым.
+    
+    :param n: Число для проверки.
+    :return: True, если число простое, иначе False.
+    """
+    if n <= 1:
+        return False
+    if n <= 3:
+        return True
+    if n % 2 == 0 or n % 3 == 0:
+        return False
+    i = 5
+    while i * i <= n:
+        if n % i == 0 or n % (i + 2) == 0:
+            return False
+        i += 6
+    return True
+
+# Обработчик команды /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("взаимодействие с решалкой:\n\n/hellman g a n\n/adleman g a n\n/adleman2 g a n (он дополнительно расипсывает систему, но иногда криво, так что если криво, то первый вариант)\n/factor c0 c1 c2 ... cN p\n\n/SF c0 c1 c2 ... cN p (это для отладки сделано)")
+    await update.message.reply_text(
+        "Взаимодействие с решалкой:\n\n"
+        "/hellman g a n - Выполнить алгоритм Хеллмана\n"
+        "/adleman g a n - Выполнить алгоритм Адлемана\n"
+        "/adleman2 g a n - Выполнить модифицированный алгоритм Адлемана (он дополнительно расписывает систему, но иногда криво, так что если криво, то первый вариант)\n"
+        "/factor c0 c1 c2 ... cN p - Факторизовать полином на свободные квадраты\n"
+        "/SF c0 c1 c2 ... cN p - Разложить полином на свободные квадраты (для отладки)"
+    )
 
+# Обработчик сообщений, не являющихся командами
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"ты написал какую-то хуйню, перепроверь:\n{update.message.text}")
+    await update.message.reply_text(f"Ты написал какую-то хуйню, перепроверь:\n{update.message.text}")
 
+# Обработчик команды /hellman
 async def hellman_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
+        if len(context.args) != 3:
+            await update.message.reply_text(
+                "Ошибка: Требуется три аргумента.\n"
+                "Формат: /hellman g a n\n"
+                "Пример: /hellman 2 5 23"
+            )
+            return
+
         g, a, n = map(int, context.args)
 
-        async def run_hellman():
-            result, detailed_solution = hellman(g, a, n)
-            return detailed_solution
+        # Запуск функции hellman в отдельном потоке с таймаутом 10 секунд
+        detailed_solution = await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(None, hellman, g, a, n),
+            timeout=10.0
+        )
 
-        detailed_solution = await asyncio.wait_for(run_hellman(), timeout=10.0)
+        # Ограничиваем длину сообщения Telegram (4096 символов)
+        if len(detailed_solution) > 4000:
+            detailed_solution = detailed_solution[:4000] + "\n... (сообщение слишком длинное)"
 
-        await update.message.reply_text(f"```\n{detailed_solution}\n```", parse_mode="MarkdownV2")
+        # Отправляем ответ пользователю с использованием форматирования Markdown
+        await update.message.reply_text(
+            f"```\n{detailed_solution}\n```", parse_mode="MarkdownV2"
+        )
 
     except asyncio.TimeoutError:
         await update.message.reply_text("Ошибка: Превышено время ожидания (таймаут 10 секунд).")
+    except ValueError:
+        await update.message.reply_text(
+            "Ошибка: Все аргументы должны быть целыми числами.\n"
+            "Формат: /hellman g a n\n"
+            "Пример: /hellman 2 5 23"
+        )
     except Exception as e:
-        await update.message.reply_text(f"Ошибка: {e}")
+        await update.message.reply_text(f"Ошибка")
 
+# Обработчик команды /adleman
 async def adleman_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
+        if len(context.args) != 3:
+            await update.message.reply_text(
+                "Ошибка: Требуется три аргумента.\n"
+                "Формат: /adleman g a n\n"
+                "Пример: /adleman 2 5 23"
+            )
+            return
+
         g, a, n = map(int, context.args)
 
-        async def run_hellman():
-            result, detailed_solution = adleman(g, a, n)
-            return detailed_solution
+        # Запуск функции adleman в отдельном потоке с таймаутом 10 секунд
+        detailed_solution = await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(None, adleman, g, a, n),
+            timeout=10.0
+        )
 
-        detailed_solution = await asyncio.wait_for(run_hellman(), timeout=10.0)
+        # Ограничиваем длину сообщения Telegram (4096 символов)
+        if len(detailed_solution) > 4000:
+            detailed_solution = detailed_solution[:4000] + "\n... (сообщение слишком длинное)"
 
-        await update.message.reply_text(f"```\n{detailed_solution}\n```", parse_mode="MarkdownV2")
+        # Отправляем ответ пользователю с использованием форматирования Markdown
+        await update.message.reply_text(
+            f"```\n{detailed_solution}\n```", parse_mode="MarkdownV2"
+        )
 
     except asyncio.TimeoutError:
         await update.message.reply_text("Ошибка: Превышено время ожидания (таймаут 10 секунд).")
+    except ValueError:
+        await update.message.reply_text(
+            "Ошибка: Все аргументы должны быть целыми числами.\n"
+            "Формат: /adleman g a n\n"
+            "Пример: /adleman 2 5 23"
+        )
     except Exception as e:
-        await update.message.reply_text(f"Ошибка: {e}")
+        await update.message.reply_text(f"Ошибка")
 
+# Обработчик команды /adleman2
 async def adleman2_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
+        if len(context.args) != 3:
+            await update.message.reply_text(
+                "Ошибка: Требуется три аргумента.\n"
+                "Формат: /adleman2 g a n\n"
+                "Пример: /adleman2 2 5 23"
+            )
+            return
+
         g, a, n = map(int, context.args)
 
-        async def run_hellman():
-            result, detailed_solution = adleman2(g, a, n)
-            return detailed_solution
+        # Запуск функции adleman2 в отдельном потоке с таймаутом 10 секунд
+        detailed_solution = await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(None, adleman2, g, a, n),
+            timeout=10.0
+        )
 
-        detailed_solution = await asyncio.wait_for(run_hellman(), timeout=10.0)
+        # Ограничиваем длину сообщения Telegram (4096 символов)
+        if len(detailed_solution) > 4000:
+            detailed_solution = detailed_solution[:4000] + "\n... (сообщение слишком длинное)"
 
-        await update.message.reply_text(f"```\n{detailed_solution}\n```", parse_mode="MarkdownV2")
+        # Отправляем ответ пользователю с использованием форматирования Markdown
+        await update.message.reply_text(
+            f"```\n{detailed_solution}\n```", parse_mode="MarkdownV2"
+        )
 
     except asyncio.TimeoutError:
         await update.message.reply_text("Ошибка: Превышено время ожидания (таймаут 10 секунд).")
+    except ValueError:
+        await update.message.reply_text(
+            "Ошибка: Все аргументы должны быть целыми числами.\n"
+            "Формат: /adleman2 g a n\n"
+            "Пример: /adleman2 2 5 23"
+        )
     except Exception as e:
-        await update.message.reply_text(f"Ошибка: {e}")
+        await update.message.reply_text(f"Ошибка")
 
 # Обработчик команды /factor
 async def factor_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -101,10 +206,15 @@ async def factor_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         coeffs = list(map(int, coeffs_str))
         p = int(p_str)
 
-        # Запускаем вычисление в отдельном потоке, чтобы не блокировать основной поток
-        loop = asyncio.get_event_loop()
-        detailed_solution = await loop.run_in_executor(
-            None, factor, coeffs, p
+        # Проверяем, что p является простым числом
+        if not is_prime(p):
+            await update.message.reply_text("Ошибка: Модуль p должен быть простым числом.")
+            return
+
+        # Запускаем вычисление в отдельном потоке с таймаутом 10 секунд
+        detailed_solution = await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(None, factor, coeffs, p),
+            timeout=10.0
         )
 
         # Ограничиваем длину сообщения Telegram (4096 символов)
@@ -116,6 +226,8 @@ async def factor_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"```\n{detailed_solution}\n```", parse_mode="MarkdownV2"
         )
 
+    except asyncio.TimeoutError:
+        await update.message.reply_text("Ошибка: Превышено время ожидания (таймаут 10 секунд).")
     except ValueError:
         await update.message.reply_text(
             "Ошибка: Все аргументы должны быть целыми числами.\n"
@@ -123,8 +235,9 @@ async def factor_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Пример: /factor 1 0 1 0 1 1 2"
         )
     except Exception as e:
-        await update.message.reply_text(f"Ошибка: {e}")
+        await update.message.reply_text(f"Ошибка")
 
+# Обработчик команды /SF
 async def SF_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Обработчик команды /SF для разложения полинома на свободные квадраты.
@@ -156,10 +269,15 @@ async def SF_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         coeffs = list(map(int, coeffs_str))
         p = int(p_str)
 
-        # Запускаем вычисление в отдельном потоке, чтобы не блокировать основной поток
-        loop = asyncio.get_event_loop()
-        detailed_solution = await loop.run_in_executor(
-            None, solve_polynomial, coeffs, p
+        # Проверяем, что p является простым числом
+        if not is_prime(p):
+            await update.message.reply_text("Ошибка: Модуль p должен быть простым числом.")
+            return
+
+        # Запускаем вычисление в отдельном потоке с таймаутом 10 секунд
+        detailed_solution = await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(None, solve_polynomial, coeffs, p),
+            timeout=10.0
         )
 
         # Ограничиваем длину сообщения Telegram (4096 символов)
@@ -171,6 +289,8 @@ async def SF_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"```\n{detailed_solution}\n```", parse_mode="MarkdownV2"
         )
 
+    except asyncio.TimeoutError:
+        await update.message.reply_text("Ошибка: Превышено время ожидания (таймаут 10 секунд).")
     except ValueError:
         await update.message.reply_text(
             "Ошибка: Все аргументы должны быть целыми числами.\n"
@@ -181,16 +301,21 @@ async def SF_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Ошибка: {e}")
 
 def main():
+    # Создаем приложение бота
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
+    # Добавляем обработчики команд
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("hellman", hellman_command))
     application.add_handler(CommandHandler("adleman", adleman_command))
     application.add_handler(CommandHandler("adleman2", adleman2_command))
     application.add_handler(CommandHandler("factor", factor_command))
     application.add_handler(CommandHandler("SF", SF_command))
+
+    # Добавляем обработчик для текстовых сообщений, не являющихся командами
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
 
+    # Запускаем бота
     application.run_polling()
 
 if __name__ == "__main__":
